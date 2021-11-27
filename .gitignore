@@ -1,0 +1,4 @@
+*.png
+driver.py
+venv/
+.idea/

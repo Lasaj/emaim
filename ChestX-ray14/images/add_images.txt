@@ -1,0 +1,2 @@
+Extract images to this folder.
+Available at https://nihcc.app.box.com/v/ChestXray-NIHCC.
