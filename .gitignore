@@ -1,4 +1,4 @@
 *.png
-driver.py
 venv/
 .idea/
+__pycache__/
