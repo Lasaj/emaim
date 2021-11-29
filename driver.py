@@ -27,25 +27,30 @@ LABEL_SRC = "./ChestX-ray14/Data_Entry_2017_v2020.csv"
 TRAIN_VAL_FILE_LIST = "./ChestX-ray14/train_val_list.txt"
 TEST_FILE_LIST = "./ChestX-ray14/test_list.txt"
 
-OUTPUT_SIZE = (224, 224)
+OUTPUT_SIZE = (229, 229)
 BATCH_SIZE = 1
 EPOCHS = 50
 
 train_val_imgs = get_image_filenames(IMG_DIR, TRAIN_VAL_FILE_LIST)
 test_imgs = get_image_filenames(IMG_DIR, TEST_FILE_LIST)
 
+small_train = []
+for i in train_val_imgs:
+    if "00000877" in i:
+        small_train.append(i)
+
 # TODO: split labels into train/val/test
 labels = get_labels(LABEL_SRC)
 
-train_ds = XraySequence(train_val_imgs, labels, output_size=OUTPUT_SIZE, batch_size=BATCH_SIZE)
+train_ds = XraySequence(small_train, labels, output_size=OUTPUT_SIZE, batch_size=BATCH_SIZE)
 
-plot_example(train_ds, img_size=OUTPUT_SIZE)
+plot_example(train_ds, img_size=OUTPUT_SIZE, finding_list=train_ds.FINDING_LABEL)
 
-# TODO: find pretrained model
+# TODO: find pretrained model for weights, classes=15
 # model = DenseNet121(include_top=True, weights='imagenet', input_tensor=None,
 #                     input_shape=None, pooling=None, classes=1000)
 
-model = InceptionV3(include_top=True, weights='imagenet', input_tensor=None,
+model = InceptionV3(include_top=True, weights=None, input_tensor=None,
                     input_shape=None, pooling=None, classes=15, classifier_activation='softmax')
 
 # TODO: weight decay of 5e-4

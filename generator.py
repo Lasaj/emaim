@@ -7,7 +7,7 @@ Generator to feed batches of (image, findings) to model.
 
 import numpy as np
 from tensorflow.keras.utils import Sequence
-from preprocessing import reshape, get_image, split_findings
+from preprocessing import reshape, get_image, one_hot_label
 
 
 class XraySequence(Sequence):
@@ -15,7 +15,7 @@ class XraySequence(Sequence):
     Generator to provide (image, [findings]) pairs in batches.
     Options to resize images, augment by random horizontal flips and shuffle at the end of epoch.
     """
-    def __init__(self, img_set, label_set, batch_size=16, output_size=(224, 224),
+    def __init__(self, img_set, label_set, batch_size=16, output_size=(229, 229),
                  augment=None, shuffle=True, finding='any'):
         self.x = img_set
         self.y = label_set
@@ -54,7 +54,7 @@ class XraySequence(Sequence):
         batch_y = self.y[idx * self.batch_size:(idx + 1) * self.batch_size]
 
         return np.array([reshape((get_image(filename)), self.output_size, 1) for filename in batch_x]), \
-               np.array([split_findings(findings) for findings in batch_y])
+               np.array([one_hot_label(labels, self.FINDING_LABEL) for labels in batch_y])
 
     def op_epoch_end(self):
         if self.shuffle:
