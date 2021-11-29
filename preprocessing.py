@@ -26,7 +26,7 @@ def get_labels(label_source_file: str) -> [str]:
 
 def one_hot_label(labels: [str], findings: [str]) -> [float]:
     num_findings = len(findings)
-    encoding = (np.zeros(num_findings, dtype='float'))
+    encoding = (np.zeros(num_findings, dtype='int'))
     for label in labels.split('|'):
         encoding[findings.index(label)] = 1
     return encoding
@@ -51,6 +51,9 @@ def reshape(image, output_size, dimension):
     :param dimension: additional axis for model, 1 in the case of X-ray images
     :return: reshaped tensor
     """
+    _, _, depth = image.shape
+    if depth > 1:
+        image = image[:, :, :1]
     image = tf.image.resize(image, [output_size[0], output_size[1]], antialias=False)
     return tf.reshape(image, (output_size[0], output_size[1], dimension))
 

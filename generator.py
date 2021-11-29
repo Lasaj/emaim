@@ -47,13 +47,13 @@ class XraySequence(Sequence):
         # if not finding == 'any':
 
     def __len__(self):
-        return np.ceil(len(self.x) / self.batch_size)
+        return (np.ceil(len(self.x) / self.batch_size)).astype(int)
 
     def __getitem__(self, idx):  # TODO: random horizontal flips
         batch_x = self.x[idx * self.batch_size:(idx + 1) * self.batch_size]
         batch_y = self.y[idx * self.batch_size:(idx + 1) * self.batch_size]
 
-        return np.array([reshape((get_image(filename)), self.output_size, 1) for filename in batch_x]), \
+        return np.array([reshape(get_image(filename), self.output_size, 1) for filename in batch_x]), \
                np.array([one_hot_label(labels, self.FINDING_LABEL) for labels in batch_y])
 
     def op_epoch_end(self):
