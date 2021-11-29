@@ -46,7 +46,7 @@ plot_example(train_ds, img_size=OUTPUT_SIZE, finding_list=train_ds.FINDING_LABEL
 #                     input_shape=None, pooling=None, classes=1000)
 
 model = InceptionV3(include_top=True, weights=None, input_tensor=None,
-                    input_shape=None, pooling=None, classes=15, classifier_activation='softmax')
+                    input_shape=(229, 229, 1), pooling=None, classes=15, classifier_activation='softmax')
 
 # TODO: weight decay of 5e-4
 model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.1, momentum=0.9), loss='categorical_crossentropy',
