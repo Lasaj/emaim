@@ -34,15 +34,10 @@ EPOCHS = 50
 train_val_imgs = get_image_filenames(IMG_DIR, TRAIN_VAL_FILE_LIST)
 test_imgs = get_image_filenames(IMG_DIR, TEST_FILE_LIST)
 
-small_train = []
-for i in train_val_imgs:
-    if "00000877" in i:
-        small_train.append(i)
-
 # TODO: split labels into train/val/test
 labels = get_labels(LABEL_SRC)
 
-train_ds = XraySequence(small_train, labels, output_size=OUTPUT_SIZE, batch_size=BATCH_SIZE)
+train_ds = XraySequence(train_val_imgs, labels, output_size=OUTPUT_SIZE, batch_size=BATCH_SIZE)
 
 plot_example(train_ds, img_size=OUTPUT_SIZE, finding_list=train_ds.FINDING_LABEL)
 
@@ -57,4 +52,4 @@ model = InceptionV3(include_top=True, weights=None, input_tensor=None,
 model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.1, momentum=0.9), loss='categorical_crossentropy',
               metrics=['accuracy'])
 
-# curves = model.fit(train_ds, batch_size=BATCH_SIZE, epochs=EPOCHS)
+curves = model.fit(train_ds, batch_size=BATCH_SIZE, epochs=EPOCHS)

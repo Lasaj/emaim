@@ -40,7 +40,6 @@ def get_image(filename: str):
     # mean = tf.reduce_mean(img)
     # sd = np.std(img)
     # return (img - mean) / sd
-    print(type(img))
     return img
 
 
