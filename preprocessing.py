@@ -11,6 +11,7 @@ import pandas as pd
 
 
 def get_image_filenames(img_dir: str, file: str) -> [str]:
+    # TODO use path not str literal
     file_names = []
     with open(file) as img_list:
         for line in img_list:
