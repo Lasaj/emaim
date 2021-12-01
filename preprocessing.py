@@ -8,6 +8,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import pandas as pd
+from tensorflow.keras.applications.inception_v3 import preprocess_input
 
 
 def get_image_filenames(img_dir: str, file: str) -> [str]:
@@ -19,10 +20,14 @@ def get_image_filenames(img_dir: str, file: str) -> [str]:
     return file_names
 
 
-def get_labels(label_source_file: str) -> [str]:
-    # TODO: find out how to handle multiple categories
+def get_labels(label_source_file: str, img_list_file: str) -> [str]:
     df = pd.read_csv(label_source_file)
-    return df['Finding Labels'].tolist()
+    df = df.set_index('Image Index')
+    labels = []
+    with open(img_list_file) as indices:
+        for line in indices:
+            labels.append(df.loc[line.strip()].loc['Finding Labels'])
+    return labels
 
 
 def one_hot_label(labels: [str], findings: [str]) -> [float]:
@@ -36,12 +41,12 @@ def one_hot_label(labels: [str], findings: [str]) -> [float]:
 def get_image(filename: str):
     img = tf.io.read_file(filename)
     img = tf.io.decode_png(img)
-    # TODO: do we need to normalise? Use preprocess_input.
+    # TODO: do we need to normalise? Use preprocess_input?
     # Normalise
     # mean = tf.reduce_mean(img)
     # sd = np.std(img)
     # return (img - mean) / sd
-    return img
+    return preprocess_input(img)
 
 
 def reshape(image, output_size, dimension):
@@ -82,3 +87,19 @@ def plot_example(data, finding_list, rows=3, cols=3, img_size=(1024, 1024)):
         plt.yticks(())
     plt.savefig('fig.png')
     plt.close(fig)
+
+
+def plot_performance(curves):
+    # plot accuracy
+    fig2, (gax1, gax2) = plt.subplots(1, 2)
+    gax1.plot(curves.history['accuracy'])
+    gax1.plot(curves.history['val_accuracy'])
+    gax1.legend(['train', 'test'], loc='upper left')
+    gax1.title.set_text("Accuracy")
+    # plot loss
+    gax2.plot(curves.history['loss'])
+    gax2.plot(curves.history['val_loss'])
+    gax2.legend(['train', 'test'], loc='upper left')
+    gax2.title.set_text("Loss")
+    fig2.savefig('./acc_loss.png')
+
