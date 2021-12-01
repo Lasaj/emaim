@@ -43,10 +43,10 @@ def get_image(filename: str):
     img = tf.io.decode_png(img)
     # TODO: do we need to normalise? Use preprocess_input?
     # Normalise
-    # mean = tf.reduce_mean(img)
-    # sd = np.std(img)
-    # return (img - mean) / sd
-    return preprocess_input(img)
+    mean = tf.reduce_mean(img)
+    sd = np.std(img)
+    return (img - mean) / sd
+    # return img
 
 
 def reshape(image, output_size, dimension):
