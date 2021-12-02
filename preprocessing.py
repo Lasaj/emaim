@@ -41,12 +41,11 @@ def one_hot_label(labels: [str], findings: [str]) -> [float]:
 def get_image(filename: str):
     img = tf.io.read_file(filename)
     img = tf.io.decode_png(img)
-    # TODO: do we need to normalise? Use preprocess_input?
-    # Normalise
-    mean = tf.reduce_mean(img)
-    sd = np.std(img)
-    return (img - mean) / sd
-    # return img
+    # Normalise - replaced by model's preprocess in reshape function
+    # mean = tf.reduce_mean(img)
+    # sd = np.std(img)
+    # return (img - mean) / sd
+    return img
 
 
 def reshape(image, output_size, dimension):
@@ -57,10 +56,14 @@ def reshape(image, output_size, dimension):
     :param dimension: additional axis for model, 1 in the case of X-ray images
     :return: reshaped tensor
     """
+    # Some images have multiple layers, so flatten these
     _, _, depth = image.shape
     if depth > 1:
         image = image[:, :, :1]
+
+    image = tf.image.random_flip_left_right(image)
     image = tf.image.resize(image, [output_size[0], output_size[1]], antialias=False)
+    image = preprocess_input(image)
     return tf.reshape(image, (output_size[0], output_size[1], dimension))
 
 

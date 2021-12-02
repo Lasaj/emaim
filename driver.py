@@ -15,12 +15,11 @@ import os
 from datetime import datetime
 
 
-
 """
 Preprocessing as described by Ho and Gwak paper:
 downscaling: 224x224 for KD, 229x229 for InceptionV3
 normalise: [-1, 1] (using mean and std deviation)
-split: 30,805 patients into 70% train, 10% val, 20 test
+split: 30,805 patients into 70% train, 10% val, 20% test
 augmentation: random horizontal flip
 """
 
@@ -33,13 +32,13 @@ TEST_FILE_LIST = "./ChestX-ray14/test_list.txt"
 CHECKPOINT_PATH = "./ChestX-ray14/checkpoints/cp-{epoch:04d}.ckpt"
 
 # Set training variables
-OUTPUT_SIZE = (229, 229)
+OUTPUT_SIZE = (299, 299)
 BATCH_SIZE = 1
 EPOCHS = 50
 
 # Get data and create generators
 train_imgs = get_image_filenames(IMG_DIR, TRAIN_FILE_LIST)
-val_imgs = get_image_filenames(IMG_DIR, TRAIN_FILE_LIST)
+val_imgs = get_image_filenames(IMG_DIR, VAL_FILE_LIST)
 test_imgs = get_image_filenames(IMG_DIR, TEST_FILE_LIST)
 
 train_labels = get_labels(LABEL_SRC, TRAIN_FILE_LIST)
@@ -58,12 +57,12 @@ cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=CHECKPOINT_PATH, save_
 plot_example(train_ds, img_size=OUTPUT_SIZE, finding_list=train_ds.FINDING_LABEL)
 
 # Prepare model
-# TODO: find pretrained model for weights, classes=15
-# model = DenseNet121(include_top=True, weights='imagenet', input_tensor=None,
-#                     input_shape=None, pooling=None, classes=1000)
+# TODO: find pretrained model for weights, classes=14?
+# model = DenseNet121(include_top=True, weights=None, input_tensor=None, input_shape=(299, 299, 1),
+#                     pooling=None, classes=14, classifier_activation='softmax')
 
-model = InceptionV3(include_top=True, weights=None, input_tensor=None,
-                    input_shape=(229, 229, 1), pooling=None, classes=15, classifier_activation='softmax')
+model = InceptionV3(include_top=True, weights=None, input_tensor=None, input_shape=(299, 299, 1),
+                    pooling=None, classes=15, classifier_activation='softmax')
 
 # TODO: weight decay of 5e-4
 model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.1, momentum=0.9), loss='binary_crossentropy',
