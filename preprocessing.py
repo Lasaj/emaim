@@ -48,7 +48,7 @@ def get_image(filename: str):
     return img
 
 
-def reshape(image, output_size, dimension):
+def reshape(image, output_size, dimension=1):
     """
     Resizes the image to output_size and add the additional dimension
     :param image: tensor of the image
