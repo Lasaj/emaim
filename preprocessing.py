@@ -4,6 +4,7 @@ Date: 27/11/2021
 
 Preprocessing and helper functions for ChestX-ray14 dataset images and labels.
 """
+
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
@@ -34,7 +35,8 @@ def one_hot_label(labels: [str], findings: [str]) -> [float]:
     num_findings = len(findings)
     encoding = (np.zeros(num_findings, dtype='int'))
     for label in labels.split('|'):
-        encoding[findings.index(label)] = 1
+        if label in findings:
+            encoding[findings.index(label)] = 1
     return encoding
 
 
@@ -48,9 +50,9 @@ def get_image(filename: str):
     return img
 
 
-def reshape(image, output_size, dimension=1):
+def prepare_image(image, output_size, dimension=1):
     """
-    Resizes the image to output_size and add the additional dimension
+    Resizes the image to output_size, adds the additional dimension and normalises image
     :param image: tensor of the image
     :param output_size: (height, width)
     :param dimension: additional axis for model, 1 in the case of X-ray images
@@ -105,4 +107,3 @@ def plot_performance(curves):
     gax2.legend(['train', 'test'], loc='upper left')
     gax2.title.set_text("Loss")
     fig2.savefig('./acc_loss.png')
-
