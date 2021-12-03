@@ -15,7 +15,7 @@ class XraySequence(Sequence):
     Generator to provide (image, [findings]) pairs in batches.
     Options to resize images, augment by random horizontal flips and shuffle at the end of epoch.
     """
-    def __init__(self, img_set, label_set, batch_size=16, output_size=(229, 229),
+    def __init__(self, img_set, label_set, batch_size=16, output_size=(299, 299),
                  augment=None, shuffle=True, finding='any'):
         self.x = img_set
         self.y = label_set
