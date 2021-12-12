@@ -62,7 +62,7 @@ plot_example(train_ds, img_size=OUTPUT_SIZE, finding_list=train_ds.FINDING_LABEL
 #                     pooling=None, classes=14, classifier_activation='softmax')
 
 model = InceptionV3(include_top=True, weights=None, input_tensor=None, input_shape=(299, 299, 1),
-                    pooling=None, classes=15, classifier_activation='softmax')
+                    pooling=None, classes=14, classifier_activation='softmax')
 
 # TODO: weight decay of 5e-4
 model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.1, momentum=0.9), loss='binary_crossentropy',
@@ -73,9 +73,15 @@ curves = model.fit(train_ds, validation_data=val_ds, batch_size=BATCH_SIZE, epoc
 plot_performance(curves)
 
 results = model.evaluate(test_ds, batch_size=BATCH_SIZE)
+predictions = model.predict(test_ds)
 
 with open("results.txt", 'a') as results_file:
     results_file.write(f"\n{datetime.now()}")
     for result in results:
         results_file.write(f"{result}\n")
+
+with open("predictions", 'a') as predictions_file:
+    predictions_file.write(f"\n{datetime.now()}")
+    for p in predictions:
+        predictions_file.write(f"{p}\n")
 
