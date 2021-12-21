@@ -4,3 +4,4 @@ venv/
 __pycache__/
 image_check.py
 label_check.py
+*test*

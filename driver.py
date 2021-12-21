@@ -4,15 +4,20 @@ Date: 27/11/2021
 
 Driver for the DenseNet121 model for the ChestX-ray14 data set for "Explain My AI Model"
 """
-
+import pandas as pd
 import tensorflow as tf
-from preprocessing import get_image_filenames, get_labels, plot_example, plot_performance
-from generator import XraySequence
+import numpy as np
+from preprocessing import get_image_filenames, plot_example, plot_performance, get_model, get_callbacks, get_scores
+from generator import XraySequence, get_idg, get_generator_from_df
 from tensorflow.keras.applications.densenet import DenseNet121, preprocess_input
 from tensorflow.keras.applications.inception_v3 import InceptionV3
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Input, Dense, GlobalAveragePooling2D, Concatenate, Flatten, Dropout
 import saliency.core as saliency
 import os
 from datetime import datetime
+from itertools import chain
+import matplotlib.pyplot as plt
 
 
 """
@@ -25,63 +30,70 @@ augmentation: random horizontal flip
 
 # Set locations of files
 IMG_DIR = "./ChestX-ray14/images/"
-LABEL_SRC = "./ChestX-ray14/Data_Entry_2017_v2020.csv"
+DATA = "./ChestX-ray14/Data_Entry_2017_v2020.csv"
 TRAIN_FILE_LIST = "./ChestX-ray14/train_list.txt"
 VAL_FILE_LIST = "./ChestX-ray14/val_list.txt"
 TEST_FILE_LIST = "./ChestX-ray14/test_list.txt"
 CHECKPOINT_PATH = "./ChestX-ray14/checkpoints/cp-{epoch:04d}.ckpt"
 
 # Set training variables
-OUTPUT_SIZE = (299, 299)
-BATCH_SIZE = 1
-EPOCHS = 50
+OUTPUT_SIZE = 299  # height is the same as width
+BATCH_SIZE = 16
+EPOCHS = 500
 
 # Get data and create generators
-train_imgs = get_image_filenames(IMG_DIR, TRAIN_FILE_LIST)
-val_imgs = get_image_filenames(IMG_DIR, VAL_FILE_LIST)
-test_imgs = get_image_filenames(IMG_DIR, TEST_FILE_LIST)
+train_imgs = get_image_filenames(TRAIN_FILE_LIST)
+val_imgs = get_image_filenames(VAL_FILE_LIST)
+test_imgs = get_image_filenames(TEST_FILE_LIST)
 
-train_labels = get_labels(LABEL_SRC, TRAIN_FILE_LIST)
-val_labels = get_labels(LABEL_SRC, VAL_FILE_LIST)
-test_labels = get_labels(LABEL_SRC, TEST_FILE_LIST)
+df = pd.read_csv(DATA)
 
-train_ds = XraySequence(train_imgs, train_labels, output_size=OUTPUT_SIZE, batch_size=BATCH_SIZE)
-val_ds = XraySequence(val_imgs, val_labels, output_size=OUTPUT_SIZE, batch_size=BATCH_SIZE)
-test_ds = XraySequence(test_imgs, test_labels, output_size=OUTPUT_SIZE, batch_size=BATCH_SIZE)
+df['path'] = df.apply(lambda row: f"{IMG_DIR}{row['Image Index']}", axis=1)
 
-# Set up callback to save checkpoints
-checkpoint_dir = os.path.dirname(CHECKPOINT_PATH)
-cp_callback = tf.keras.callbacks.ModelCheckpoint(filepath=CHECKPOINT_PATH, save_weights_only=True, verbose=1)
+labels = np.unique(list(chain(*df['Finding Labels'].map(lambda x: x.split('|')).tolist())))
+labels = [x for x in labels if x != 'No Finding']
+labels = sorted(labels)
 
-# Check sanity
-plot_example(train_ds, img_size=OUTPUT_SIZE, finding_list=train_ds.FINDING_LABEL)
+for label in labels:
+    if len(label) > 1:
+        df[label] = df['Finding Labels'].map(lambda finding: 1.0 if label in finding else 0.0)
 
-# Prepare model
-# TODO: find pretrained model for weights, classes=14?
-# model = DenseNet121(include_top=True, weights=None, input_tensor=None, input_shape=(299, 299, 1),
-#                     pooling=None, classes=14, classifier_activation='softmax')
+train_df = df[(df["Image Index"].isin(train_imgs))]
+valid_df = df[(df["Image Index"].isin(val_imgs))]
+test_df = df[(df["Image Index"].isin(test_imgs))]
 
-model = InceptionV3(include_top=True, weights=None, input_tensor=None, input_shape=(299, 299, 1),
-                    pooling=None, classes=14, classifier_activation='softmax')
+train_df['labels'] = train_df.apply(lambda x: x['Finding Labels'].split('|'), axis=1)
+valid_df['labels'] = valid_df.apply(lambda x: x['Finding Labels'].split('|'), axis=1)
+test_df['labels'] = test_df.apply(lambda x: x['Finding Labels'].split('|'), axis=1)
 
-# TODO: weight decay of 5e-4
-model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.1, momentum=0.9), loss='binary_crossentropy',
+core_idg = get_idg()
+train_gen = get_generator_from_df(core_idg, train_df, BATCH_SIZE, labels, OUTPUT_SIZE)
+valid_gen = get_generator_from_df(core_idg, valid_df, BATCH_SIZE, labels, OUTPUT_SIZE)
+test_X, test_Y = next(get_generator_from_df(core_idg, test_df, BATCH_SIZE, labels, OUTPUT_SIZE))
+
+model = get_model(len(labels), OUTPUT_SIZE)
+
+model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.001, momentum=0.9), loss='binary_crossentropy',
               metrics=['accuracy'])
 
-# Train model
-curves = model.fit(train_ds, validation_data=val_ds, batch_size=BATCH_SIZE, epochs=EPOCHS, callbacks=[cp_callback])
+callbacks = get_callbacks("InceptionV3")
+
+curves = model.fit(train_gen, validation_data=(test_X, test_Y), epochs=EPOCHS, callbacks=callbacks)
+
+y_pred = model.predict(test_X)
+
+results = model.evaluate(test_X, test_Y, batch_size=BATCH_SIZE)
+get_scores(labels, y_pred, test_Y, datetime.now())
 plot_performance(curves)
 
-results = model.evaluate(test_ds, batch_size=BATCH_SIZE)
-predictions = model.predict(test_ds)
+model.save(f"{datetime.now()}_CX14_IV3.h5")
 
-with open("results.txt", 'a') as results_file:
-    results_file.write(f"\n{datetime.now()}")
+with open(f"{datetime.now()}_results.txt", 'a') as results_file:
+    results_file.write(f"{datetime.now()}")
     for result in results:
         results_file.write(f"{result}\n")
 
-with open("predictions", 'a') as predictions_file:
-    predictions_file.write(f"\n{datetime.now()}")
-    for p in predictions:
+with open(f"{datetime.now()}_predictions", 'a') as predictions_file:
+    predictions_file.write(f"{datetime.now()}")
+    for p in y_pred:
         predictions_file.write(f"{p}\n")
-
