@@ -10,6 +10,8 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import pandas as pd
 from tensorflow.keras.applications.inception_v3 import InceptionV3, preprocess_input
+from tensorflow.keras.applications.inception_resnet_v2 import InceptionResNetV2
+from tensorflow.keras.optimizers import SGD, RMSprop
 from sklearn.metrics import roc_curve, auc, roc_auc_score, accuracy_score, average_precision_score
 
 
@@ -19,12 +21,22 @@ def get_image_filenames(file: str) -> [str]:
     return file_names
 
 
-def get_model(num_labels, image_size):
-    base_model = InceptionV3(include_top=False, weights='imagenet', input_shape=(image_size, image_size, 3))
+def get_model(current_model, num_labels, image_size):
+    models = {
+        'InceptionV3': InceptionV3(include_top=False, weights='imagenet', input_shape=(image_size, image_size, 3)),
+        'InceptionResNetV2': InceptionResNetV2(include_top=False, weights='imagenet', input_shape=(image_size,
+                                                                                                   image_size, 3))
+    }
+    optimizers = {
+        'InceptionV3': SGD(learning_rate=0.001, momentum=0.9),
+        'InceptionResNetV2': RMSprop()
+    }
+
+    base_model = models[current_model]
     x = base_model.output
     x = tf.keras.layers.GlobalAveragePooling2D()(x)
     output = tf.keras.layers.Dense(num_labels, activation="sigmoid")(x)
-    return tf.keras.Model(base_model.input, output)
+    return tf.keras.Model(base_model.input, output), optimizers[current_model]
 
 
 def get_callbacks(model_name):
@@ -35,13 +47,13 @@ def get_callbacks(model_name):
         filepath=f'model.{model_name}.h5',
         verbose=1,
         save_best_only=True)
-    # erly = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
+    # early = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
     callbacks.append(checkpoint)
-    # callbacks.append(erly)
+    # callbacks.append(early)
     return callbacks
 
 
-def get_scores(labels, y_pred, test_Y, now):
+def get_scores(labels, y_pred, test_Y, now, model):
     for label, p_count, t_count in zip(labels,
                                        100 * np.mean(y_pred, 0),
                                        100 * np.mean(test_Y, 0)):
@@ -54,7 +66,7 @@ def get_scores(labels, y_pred, test_Y, now):
     c_ax.legend()
     c_ax.set_xlabel('False Positive Rate')
     c_ax.set_ylabel('True Positive Rate')
-    fig.savefig(f'{now}_IV3_trained_net.png')
+    fig.savefig(f'{now}_{model}_trained_net.png')
 
     print('InceptionV3 ROC auc score: {:.3f}'.format(roc_auc_score(test_Y.astype(int), y_pred)))
 
@@ -110,12 +122,13 @@ def prepare_image(image, output_size, dimension=3, aug=True):
     return tf.reshape(image, (output_size[0], output_size[1], dimension))
 
 
-def plot_example(data, finding_labels, rows=3, cols=3, img_size=(1024, 1024)):
+def plot_example(data, finding_labels, model, rows=3, cols=3, img_size=(1024, 1024)):
     """
     Sanity check to print some images and findings. Only use with batch size = 1!
     If there are multiple findings this only lists the first one.
-    :param finding_labels: array of findings
     :param data: dataset of (image, [findings])
+    :param finding_labels: array of findings
+    :param model: name of model to save file
     :param rows: number of rows
     :param cols: number of columns
     :param img_size:
@@ -132,11 +145,11 @@ def plot_example(data, finding_labels, rows=3, cols=3, img_size=(1024, 1024)):
         plt.title(label, size=12, color='black')
         plt.xticks(())
         plt.yticks(())
-    plt.savefig('fig.png')
+    plt.savefig(f'{model}_fig.png')
     plt.close(fig)
 
 
-def plot_performance(curves):
+def plot_performance(curves, model):
     # plot accuracy
     fig2, (gax1, gax2) = plt.subplots(1, 2)
     gax1.plot(curves.history['accuracy'])
@@ -148,4 +161,4 @@ def plot_performance(curves):
     gax2.plot(curves.history['val_loss'])
     gax2.legend(['train', 'test'], loc='upper left')
     gax2.title.set_text("Loss")
-    fig2.savefig('./acc_loss.png')
+    fig2.savefig(f'./{model}_acc_loss.png')
