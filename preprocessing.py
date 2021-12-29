@@ -139,7 +139,11 @@ def plot_example(data, finding_labels, model, rows=3, cols=3, img_size=(1024, 10
         # TODO: refactor to cope with batch size > 1
         img = tf.reshape(data[i][0], (299, 299, 3))
         img = tf.image.resize(img, img_size)
-        label = finding_labels[np.argmax(data[i][1])]
+        label_indices = np.argwhere(data[i][1] == np.amax(data[i][1])).flatten().tolist()
+        labels = [finding_labels[x] for x in label_indices]
+        label = '|'.join(labels)
+        if len(label) == 1:
+            label = 'No Finding'
         plt.subplot(rows, cols, i+1)
         plt.imshow(img)
         plt.title(label, size=12, color='black')
