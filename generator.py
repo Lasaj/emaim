@@ -5,14 +5,18 @@ Date: 28/11/2021
 Generator to feed batches of (image, findings) to model.
 """
 
+import tensorflow as tf
 import numpy as np
 from tensorflow.keras.utils import Sequence
 from preprocessing import prepare_image, get_image, one_hot_label
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.applications.inception_v3 import InceptionV3, preprocess_input
+from tensorflow.keras.applications.inception_resnet_v2 import InceptionResNetV2
+from tensorflow.keras.optimizers import SGD, RMSprop
 
 
 def get_idg():
-    return ImageDataGenerator(rescale=1 / 255,
+    return ImageDataGenerator(rescale=(1/255),
                               samplewise_center=True,
                               samplewise_std_normalization=True,
                               horizontal_flip=True,
@@ -22,7 +26,7 @@ def get_idg():
                               rotation_range=5,
                               shear_range=0.1,
                               fill_mode='reflect',
-                              zoom_range=0.15)
+                              zoom_range=0.15,)
 
 
 def get_generator_from_df(idg, df, batch_size, labels, image_size=299):
@@ -34,6 +38,38 @@ def get_generator_from_df(idg, df, batch_size, labels, image_size=299):
                                    batch_size=batch_size,
                                    classes=labels,
                                    target_size=(image_size, image_size))
+
+
+def get_model(current_model, num_labels, image_size):
+    models = {
+        'InceptionV3': InceptionV3(include_top=False, weights='imagenet', input_shape=(image_size, image_size, 3)),
+        'InceptionResNetV2': InceptionResNetV2(include_top=False, weights='imagenet', input_shape=(image_size,
+                                                                                                   image_size, 3))
+    }
+    optimizers = {
+        'InceptionV3': SGD(learning_rate=0.001, momentum=0.9, decay=5e-4),
+        'InceptionResNetV2': RMSprop()
+    }
+
+    base_model = models[current_model]
+    x = base_model.output
+    x = tf.keras.layers.GlobalAveragePooling2D()(x)
+    output = tf.keras.layers.Dense(num_labels, activation="sigmoid")(x)
+    return tf.keras.Model(base_model.input, output), optimizers[current_model]
+
+
+def get_callbacks(model_name):
+    callbacks = []
+    tensor_board = tf.keras.callbacks.TensorBoard(log_dir='./logs', histogram_freq=0)
+    callbacks.append(tensor_board)
+    checkpoint = tf.keras.callbacks.ModelCheckpoint(
+        filepath=f'model.{model_name}.h5',
+        verbose=1,
+        save_best_only=True)
+    # early = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
+    callbacks.append(checkpoint)
+    # callbacks.append(early)
+    return callbacks
 
 
 class XraySequence(Sequence):

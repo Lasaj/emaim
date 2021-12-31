@@ -9,9 +9,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import pandas as pd
-from tensorflow.keras.applications.inception_v3 import InceptionV3, preprocess_input
-from tensorflow.keras.applications.inception_resnet_v2 import InceptionResNetV2
-from tensorflow.keras.optimizers import SGD, RMSprop
+from tensorflow.keras.applications.inception_v3 import preprocess_input
 from sklearn.metrics import roc_curve, auc, roc_auc_score, accuracy_score, average_precision_score
 
 
@@ -19,38 +17,6 @@ def get_image_filenames(file: str) -> [str]:
     with open(file) as img_list:
         file_names = [f"{line.strip()}" for line in img_list]
     return file_names
-
-
-def get_model(current_model, num_labels, image_size):
-    models = {
-        'InceptionV3': InceptionV3(include_top=False, weights='imagenet', input_shape=(image_size, image_size, 3)),
-        'InceptionResNetV2': InceptionResNetV2(include_top=False, weights='imagenet', input_shape=(image_size,
-                                                                                                   image_size, 3))
-    }
-    optimizers = {
-        'InceptionV3': SGD(learning_rate=0.001, momentum=0.9),
-        'InceptionResNetV2': RMSprop()
-    }
-
-    base_model = models[current_model]
-    x = base_model.output
-    x = tf.keras.layers.GlobalAveragePooling2D()(x)
-    output = tf.keras.layers.Dense(num_labels, activation="sigmoid")(x)
-    return tf.keras.Model(base_model.input, output), optimizers[current_model]
-
-
-def get_callbacks(model_name):
-    callbacks = []
-    tensor_board = tf.keras.callbacks.TensorBoard(log_dir='./logs', histogram_freq=0)
-    callbacks.append(tensor_board)
-    checkpoint = tf.keras.callbacks.ModelCheckpoint(
-        filepath=f'model.{model_name}.h5',
-        verbose=1,
-        save_best_only=True)
-    # early = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
-    callbacks.append(checkpoint)
-    # callbacks.append(early)
-    return callbacks
 
 
 def get_scores(labels, y_pred, test_Y, now, model):
@@ -68,7 +34,7 @@ def get_scores(labels, y_pred, test_Y, now, model):
     c_ax.set_ylabel('True Positive Rate')
     fig.savefig(f'{now}_{model}_trained_net.png')
 
-    print('InceptionV3 ROC auc score: {:.3f}'.format(roc_auc_score(test_Y.astype(int), y_pred)))
+    print('{} ROC auc score: {:.3f}'.format(model, roc_auc_score(test_Y.astype(int), y_pred)))
 
 
 def get_labels(label_source_file: str, img_list_file: str) -> [str]:
@@ -122,7 +88,7 @@ def prepare_image(image, output_size, dimension=3, aug=True):
     return tf.reshape(image, (output_size[0], output_size[1], dimension))
 
 
-def plot_example(data, finding_labels, model, rows=3, cols=3, img_size=(1024, 1024)):
+def plot_example(data, finding_labels, model, rows=5, cols=5, img_size=(1024, 1024)):
     """
     Sanity check to print some images and findings. Only use with batch size = 1!
     If there are multiple findings this only lists the first one.
@@ -139,10 +105,11 @@ def plot_example(data, finding_labels, model, rows=3, cols=3, img_size=(1024, 10
         # TODO: refactor to cope with batch size > 1
         img = tf.reshape(data[i][0], (299, 299, 3))
         img = tf.image.resize(img, img_size)
+        print(np.amin(img), np.amax(img))
         label_indices = np.argwhere(data[i][1] == np.amax(data[i][1])).flatten().tolist()
-        labels = [finding_labels[x] for x in label_indices]
+        labels = [finding_labels[x] for x in label_indices if x > 0]
         label = '|'.join(labels)
-        if len(label) == 1:
+        if len(label) <= 1:
             label = 'No Finding'
         plt.subplot(rows, cols, i+1)
         plt.imshow(img)

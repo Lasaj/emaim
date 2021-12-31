@@ -6,9 +6,9 @@ Driver for the InceptionV3 model for the ChestX-ray14 data set for "Explain My A
 """
 import pandas as pd
 import numpy as np
-from preprocessing import get_image_filenames, plot_example, plot_performance, get_model, get_callbacks, get_scores
-from generator import XraySequence, get_idg, get_generator_from_df
-from datetime import datetime
+import time
+from preprocessing import get_image_filenames, plot_example, plot_performance, get_scores
+from generator import XraySequence, get_idg, get_generator_from_df, get_callbacks, get_model
 from itertools import chain
 
 
@@ -32,8 +32,8 @@ CHECKPOINT_PATH = "./ChestX-ray14/checkpoints/cp-{epoch:04d}.ckpt"
 AVAILABLE_MODELS = ["InceptionV3", "InceptionResNetV2"]
 CURRENT_MODEL = AVAILABLE_MODELS[0]  # Select from AVAILABLE_MODELS
 OUTPUT_SIZE = 299  # height is the same as width
-BATCH_SIZE = 16
-EPOCHS = 500
+BATCH_SIZE = 32
+EPOCHS = 50
 
 if CURRENT_MODEL not in AVAILABLE_MODELS:
     print('Invalid model')
@@ -73,33 +73,36 @@ test_df['labels'] = test_df.apply(lambda x: x['Finding Labels'].split('|'), axis
 core_idg = get_idg()
 train_gen = get_generator_from_df(core_idg, train_df, BATCH_SIZE, labels, OUTPUT_SIZE)
 valid_gen = get_generator_from_df(core_idg, valid_df, BATCH_SIZE, labels, OUTPUT_SIZE)
-test_X, test_Y = next(get_generator_from_df(core_idg, test_df, BATCH_SIZE, labels, OUTPUT_SIZE))
+test_X, test_Y = next(get_generator_from_df(core_idg, test_df, 1024, labels, OUTPUT_SIZE))
 
-# Get model
+# Get model and optimiser
 model, optimizer = get_model(CURRENT_MODEL, len(labels), OUTPUT_SIZE)
 
 model.compile(optimizer=optimizer, loss='binary_crossentropy', metrics=['accuracy'])
 
 callbacks = get_callbacks(CURRENT_MODEL)
 
+# Check sanity
+# plot_example(train_gen, labels, CURRENT_MODEL)
+
 # Train model
-curves = model.fit(train_gen, validation_data=(test_X, test_Y), epochs=EPOCHS, callbacks=callbacks)
+curves = model.fit(train_gen, validation_data=valid_gen, epochs=EPOCHS, callbacks=callbacks)
 
 # Evaluate model
 y_pred = model.predict(test_X)
 
 results = model.evaluate(test_X, test_Y, batch_size=BATCH_SIZE)
-get_scores(labels, y_pred, test_Y, datetime.now(), CURRENT_MODEL)
+get_scores(labels, y_pred, test_Y, time.strftime('%Y%m%d_%H%M'), CURRENT_MODEL)
 plot_performance(curves, model=CURRENT_MODEL)
 
-model.save(f"{datetime.now()}_{CURRENT_MODEL}_CX14.h5")
+model.save(f"{time.strftime('%Y%m%d_%H%M')}_{CURRENT_MODEL}_CX14.h5")
 
-with open(f"{datetime.now()}_{CURRENT_MODEL}_results.txt", 'a') as results_file:
-    results_file.write(f"{datetime.now()}")
+with open(f"{time.strftime('%Y%m%d_%H%M')}_{CURRENT_MODEL}_results.txt", 'a') as results_file:
+    results_file.write(f"{time.strftime('%Y%m%d_%H%M')}")
     for result in results:
         results_file.write(f"{result}\n")
 
-with open(f"{datetime.now()}_{CURRENT_MODEL}_predictions", 'a') as predictions_file:
-    predictions_file.write(f"{datetime.now()}")
+with open(f"{time.strftime('%Y%m%d_%H%M')}_{CURRENT_MODEL}_predictions", 'a') as predictions_file:
+    predictions_file.write(f"{time.strftime('%Y%m%d_%H%M')}")
     for p in y_pred:
         predictions_file.write(f"{p}\n")
