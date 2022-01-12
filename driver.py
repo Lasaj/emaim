@@ -51,8 +51,9 @@ df['path'] = df.apply(lambda row: f"{IMG_DIR}{row['Image Index']}", axis=1)  # a
 
 # Get all possible finding labels
 labels = np.unique(list(chain(*df['Finding Labels'].map(lambda x: x.split('|')).tolist())))
-labels = [x for x in labels if x != 'No Finding']
+# labels = [x for x in labels if x != 'No Finding']
 labels = sorted(labels)
+print(labels)
 
 # One hot encode labels
 for label in labels:  # May not be required for training but could be useful

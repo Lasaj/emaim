@@ -21,8 +21,8 @@ def get_image_filenames(file: str) -> [str]:
 
 def get_scores(labels, y_pred, test_Y, now, model):
     for label, p_count, t_count in zip(labels,
-                                       100 * np.mean(y_pred, 0),
-                                       100 * np.mean(test_Y, 0)):
+                                       1000 * np.mean(y_pred, 0),
+                                       1000 * np.mean(test_Y, 0)):
         print('%s: actual: %2.2f%%, predicted: %2.2f%%' % (label, t_count, p_count))
 
     fig, c_ax = plt.subplots(1, 1, figsize=(9, 9))
@@ -88,6 +88,15 @@ def prepare_image(image, output_size, dimension=3, aug=True):
     return tf.reshape(image, (output_size[0], output_size[1], dimension))
 
 
+def decode_labels(encoding, finding_labels):
+    label_indices = np.argwhere(encoding == np.amax(encoding)).flatten().tolist()
+    labels = [finding_labels[x] for x in label_indices if x >= 0]
+    label = '|'.join(labels)
+    if len(label) <= 1:
+        label = 'No Finding'
+    return label
+
+
 def plot_example(data, finding_labels, model, rows=5, cols=5, img_size=(1024, 1024)):
     """
     Sanity check to print some images and findings. Only use with batch size = 1!
@@ -106,11 +115,12 @@ def plot_example(data, finding_labels, model, rows=5, cols=5, img_size=(1024, 10
         img = tf.reshape(data[i][0], (299, 299, 3))
         img = tf.image.resize(img, img_size)
         print(np.amin(img), np.amax(img))
-        label_indices = np.argwhere(data[i][1] == np.amax(data[i][1])).flatten().tolist()
-        labels = [finding_labels[x] for x in label_indices if x > 0]
-        label = '|'.join(labels)
-        if len(label) <= 1:
-            label = 'No Finding'
+        label = decode_labels(data[i][1], finding_labels)
+        # label_indices = np.argwhere(data[i][1] == np.amax(data[i][1])).flatten().tolist()
+        # labels = [finding_labels[x] for x in label_indices if x > 0]
+        # label = '|'.join(labels)
+        # if len(label) <= 1:
+        #     label = 'No Finding'
         plt.subplot(rows, cols, i+1)
         plt.imshow(img)
         plt.title(label, size=12, color='black')
