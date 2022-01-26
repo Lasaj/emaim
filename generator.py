@@ -13,6 +13,12 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications.inception_v3 import InceptionV3, preprocess_input
 from tensorflow.keras.applications.inception_resnet_v2 import InceptionResNetV2
 from tensorflow.keras.optimizers import SGD, RMSprop
+from tensorflow.keras.layers import Lambda
+from tensorflow.keras import backend as K
+
+
+def PermaDropout(rate):
+    return Lambda(lambda x: K.dropout(x, level=rate))
 
 
 def get_idg():
@@ -58,8 +64,9 @@ def get_model(current_model, num_labels, image_size, weights='imagenet'):
     base_model = models[current_model]
     x = base_model.output
     x = tf.keras.layers.GlobalAveragePooling2D()(x)
-    x = tf.keras.layers.Dropout(0.2)(x)
-    output = tf.keras.layers.Dense(num_labels, activation="sigmoid")(x)
+    x = PermaDropout(0.2)(x)
+    # output = tf.keras.layers.Dense(num_labels, activation="sigmoid")(x)
+    output = tf.keras.layers.Dense(num_labels, activation="softmax")(x)
     model = tf.keras.Model(base_model.input, output)
     if weights != 'imagenet':
         model.load_weights(weights)
