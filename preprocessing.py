@@ -9,8 +9,36 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import pandas as pd
-from tensorflow.keras.applications.inception_v3 import preprocess_input
+# from tensorflow.keras.applications.inception_v3 import preprocess_input
 from sklearn.metrics import roc_curve, auc, roc_auc_score, accuracy_score, average_precision_score
+from itertools import chain
+
+
+def get_labels(df, only_findings=False):
+    labels = np.unique(list(chain(*df['Finding Labels'].map(lambda x: x.split('|')).tolist())))
+    if only_findings:
+        labels = [x for x in labels if x != 'No Finding']
+    return sorted(labels)
+
+
+def prepare_df(df, labels, img_dir, only_findings=True, no_comorbid=False):
+    df['path'] = df.apply(lambda row: f"{img_dir}{row['Image Index']}", axis=1)  # add image paths
+
+    # One hot encode labels
+    for label in labels:  # May not be required for training but could be useful
+        if len(label) > 1:
+            df[label] = df['Finding Labels'].map(lambda finding: 1.0 if label in finding else 0.0)
+
+    # Change strings of findings to lists
+    df['labels'] = df.apply(lambda x: x['Finding Labels'].split('|'), axis=1)
+
+    if no_comorbid:
+        df = df[(df['labels'].str.len() == 1)]
+
+    if only_findings:
+        df = df[(df['Finding Labels'] != 'No Finding')]
+
+    return df
 
 
 def get_image_filenames(file: str) -> [str]:
@@ -35,16 +63,6 @@ def get_scores(labels, y_pred, test_Y, now, model):
     fig.savefig(f'{now}_{model}_trained_net.png')
 
     print('{} ROC auc score: {:.3f}'.format(model, roc_auc_score(test_Y.astype(int), y_pred)))
-
-
-def get_labels(label_source_file: str, img_list_file: str) -> [str]:
-    df = pd.read_csv(label_source_file)
-    df = df.set_index('Image Index')
-    labels = []
-    with open(img_list_file) as indices:
-        for line in indices:
-            labels.append(df.loc[line.strip()].loc['Finding Labels'])
-    return labels
 
 
 def one_hot_label(labels: [str], findings: [str]) -> [float]:
