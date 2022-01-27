@@ -22,7 +22,7 @@ CHECKPOINT_PATH = "./ChestX-ray14/checkpoints/cp-{epoch:04d}.ckpt"
 # Set training variables
 AVAILABLE_MODELS = ["InceptionV3", "InceptionResNetV2"]
 CURRENT_MODEL = AVAILABLE_MODELS[0]  # Select from AVAILABLE_MODELS
-ONLY_FINDINGS = False  # Only include samples with findings if True
+ONLY_FINDINGS = True  # Only include samples with findings if True
 NO_COMORBID = True  # Remove samples with more than one finding if True
 OUTPUT_SIZE = 299  # height is the same as width
 BATCH_SIZE = 32
