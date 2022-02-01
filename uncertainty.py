@@ -15,17 +15,17 @@ from generator import get_idg, get_generator_from_df, get_model
 # Set locations of files
 IMG_DIR = "./ChestX-ray14/images/"
 DATA = "./ChestX-ray14/Data_Entry_2017_v2020.csv"
-WEIGHTS = "./complete/664055_IRNV2/model.InceptionResNetV2.h5"
+WEIGHTS = "./complete/665412_softmax_no_NF/model.InceptionV3.h5"
 # TRAIN_FILE_LIST = "./ChestX-ray14/train_list.txt"
 # VAL_FILE_LIST = "./ChestX-ray14/val_list.txt"
 TEST_FILE_LIST = "./ChestX-ray14/test_list.txt"
-ONLY_FINDINGS = False
+ONLY_FINDINGS = True
 
 AVAILABLE_MODELS = ["InceptionV3", "InceptionResNetV2"]
 CURRENT_MODEL = AVAILABLE_MODELS[0]  # Select from AVAILABLE_MODELS
 OUTPUT_SIZE = 299  # height is the same as width
-BATCH_SIZE = 400
-NUM_PREDS = 100
+NUM_PREDS = 400  # number of predictions to use
+BATCH_SIZE = NUM_PREDS
 
 
 def predict_prob(X, model, num_samples):
@@ -40,6 +40,17 @@ def predict_class(X, model, num_samples):
     print("proba preds")
     print(proba_preds[0])
     return np.argmax(proba_preds, axis=1)
+
+
+def get_all_true(lst):
+    results = []
+    for findings in lst:
+        all_true = []
+        for i, v in enumerate(findings):
+            if v > 0:
+                all_true.append(i)
+        results.append(all_true)
+    return results
 
 
 ## SETUP ##
@@ -75,7 +86,8 @@ accuracies = {}
 core_idg = get_idg()
 # X_train, y_train = next(get_generator_from_df(core_idg, train_df, BATCH_SIZE, labels, OUTPUT_SIZE, shuffle=False))
 
-for label in individual_dfs.keys():
+for index, label in enumerate(individual_dfs.keys()):
+    print("###", index, label, "###")
     test_df = individual_dfs[label]
     X_test, y_test = next(get_generator_from_df(core_idg, test_df, BATCH_SIZE, labels, OUTPUT_SIZE, shuffle=False))
 
@@ -89,13 +101,16 @@ for label in individual_dfs.keys():
 
     ## OUTPUT ##
     # 100 predictions
-    y_pred = predict_class(X_test, model, 100)
+    y_pred = predict_class(X_test, model, NUM_PREDS)
     print("y_pred")
     print(y_pred[0])
 
     print("y_test")
     print(y_test)
-    classes = np.argmax(y_test, axis=1)
+    if index == 0:
+        classes = np.array(get_all_true(y_test))
+    else:
+        classes = [index - 1] * NUM_PREDS
 
     print("classes")
     print(classes)
@@ -105,7 +120,7 @@ for label in individual_dfs.keys():
     """
 
     p_hat = []  # 2
-    for t in range(len(X_test)):  # 50 repetitions of MC  # 3
+    for t in range(NUM_PREDS):  # 50 repetitions of MC  # 3
         p_hat.append(model.predict(X_test, verbose=0))  # 4
     MC_samples = np.array(p_hat)  # 5
     y_pred_bayesian = np.mean(MC_samples, axis=0)  # average out 50 predictions into 1  # 6
@@ -115,17 +130,24 @@ for label in individual_dfs.keys():
     print(MC_samples)
     print("bayesPredictions")
     print(bayesPredictions)
-    acc = np.mean(bayesPredictions == y_test)
+    # acc = np.mean(bayesPredictions == y_test)
 
-    total = len(bayesPredictions)
+    correct_preds = []
     correct = 0
-    for i in range(total):
-        if classes[i] == bayesPredictions[i]:
-            print(i)
-            correct += 1
+    for i in range(NUM_PREDS):
+        if index == 0:
+            if bayesPredictions[i] in classes[i]:
+                print(i)
+                correct_preds.append(i)
+                correct += 1
+        else:
+            if classes[i] == bayesPredictions[i]:
+                print(i)
+                correct_preds.append(i)
+                correct += 1
 
     print("Correct:", correct)
-    accuracy = correct / total
+    accuracy = correct / NUM_PREDS
     print("Accuracy:", accuracy)
     accuracies[label] = accuracy
 
@@ -139,14 +161,30 @@ for label in individual_dfs.keys():
     print(H)
     print("H min", H.min(), "H max", H.max())
     H_norm = (H - H.min()) / (H.max() - H.min())
+    print("H norm")
+    print(H_norm)
 
-    MC_samples = np.array(p_hat)
+    # MC_samples = np.array(p_hat)
     mean_prob = np.mean(MC_samples, axis=0)
+    print("Mean prob")
+    print(mean_prob)
     y_pred = np.argmax(mean_prob, axis=1)
+    print("y_pred")
+    print(y_pred)
+
+    H_norm_correct = []
+    for i in correct_preds:
+        H_norm_correct.append(H_norm[i])
+
+    H_norm_incorrect = []
+    for i in range(len(H_norm)):
+        if i not in correct_preds:
+            H_norm_incorrect.append(H_norm[i])
 
     sns.set()
-    sns.kdeplot(H_norm[classes == y_pred], shade=True, color='forestgreen')
-    sns.kdeplot(H_norm[classes != y_pred], shade=True, color='tomato')
+    sns.kdeplot(H_norm_correct, shade=True, color='forestgreen')
+    sns.kdeplot(H_norm_incorrect, shade=True, color='tomato')
+
     plt.title(f"{label}, Accuracy:{accuracy}")
     plt.savefig(f"{time.strftime('%Y%m%d_%H%M')}_{label}.png")
     plt.close()
