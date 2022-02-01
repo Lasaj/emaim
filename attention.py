@@ -18,13 +18,16 @@ import saliency.core as saliency
 # Set locations of files
 IMG_DIR = "./ChestX-ray14/images/"
 DATA = "./sample.csv"
-WEIGHTS = "./complete/665412_softmax_no_NF/model.InceptionV3.h5"
+WEIGHTS = "./complete/666104_IV2_no_CM_no_NF/model.InceptionV3.h5"
 
 # Set training variables
 to_figure = False
 to_images = True
 AVAILABLE_MODELS = ["InceptionV3", "InceptionResNetV2"]
 CURRENT_MODEL = AVAILABLE_MODELS[0]  # Select from AVAILABLE_MODELS
+ONLY_FINDINGS = False
+NO_COMORBID = False
+
 OUTPUT_SIZE = 299  # height is the same as width
 BATCH_SIZE = 1
 class_idx_str = 'class_idx_str'
@@ -39,11 +42,11 @@ start = time.time()
 df = pd.read_csv(DATA)
 
 # Get all possible finding labels
-labels = get_labels(df, only_findings=True)
+labels = get_labels(df, only_findings=ONLY_FINDINGS)
 print(labels)
 
 # Update data
-df = prepare_df(df, labels, IMG_DIR)
+df = prepare_df(df, labels, IMG_DIR, only_findings=ONLY_FINDINGS, no_comorbid=NO_COMORBID)
 
 # Create generators for each split
 core_idg = get_idg()
