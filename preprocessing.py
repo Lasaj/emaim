@@ -8,6 +8,7 @@ Preprocessing and helper functions for ChestX-ray14 dataset images and labels.
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+import time
 import pandas as pd
 # from tensorflow.keras.applications.inception_v3 import preprocess_input
 from sklearn.metrics import roc_curve, auc, roc_auc_score, accuracy_score, average_precision_score
@@ -63,6 +64,18 @@ def get_scores(labels, y_pred, test_Y, now, model):
     fig.savefig(f'{now}_{model}_trained_net.png')
 
     print('{} ROC auc score: {:.3f}'.format(model, roc_auc_score(test_Y.astype(int), y_pred)))
+
+
+def get_class_weights(labels, df):
+    n_class = len(labels)
+    n_sample = len(df)
+    freqs = {}
+    for l in labels:
+        freqs[l] = df[l].sum()
+    weights = {}
+    for i in range(n_class):
+        weights[i] = n_sample / (n_class * freqs[labels[i]])
+    return weights
 
 
 def one_hot_label(labels: [str], findings: [str]) -> [float]:
@@ -160,4 +173,4 @@ def plot_performance(curves, model):
     gax2.plot(curves.history['val_loss'])
     gax2.legend(['train', 'test'], loc='upper left')
     gax2.title.set_text("Loss")
-    fig2.savefig(f'./{model}_acc_loss.png')
+    fig2.savefig(f"./{time.strftime('%Y%m%d_%H%M')}_{model}_acc_loss.png")
