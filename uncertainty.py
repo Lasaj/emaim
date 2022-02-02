@@ -134,7 +134,7 @@ for index, label in enumerate(individual_dfs.keys()):
 
     correct_preds = []
     correct = 0
-    for i in range(len(bayesPredictions)):
+    for i in range(len(bayesPredictions) - 1):
         if index == 0:
             if bayesPredictions[i] in classes[i]:
                 print(i)
