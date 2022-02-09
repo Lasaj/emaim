@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import PIL.Image
 from preprocessing import get_labels, decode_labels, prepare_df
 from generator import get_idg, get_generator_from_df, get_model
 import saliency.core as saliency
@@ -21,8 +22,8 @@ DATA = "./sample.csv"
 WEIGHTS = "./complete/666104_IV2_no_CM_no_NF/model.InceptionV3.h5"
 
 # Set training variables
-to_figure = False
-to_images = True
+to_figure = True
+to_images = False
 AVAILABLE_MODELS = ["InceptionV3", "InceptionResNetV2"]
 CURRENT_MODEL = AVAILABLE_MODELS[0]  # Select from AVAILABLE_MODELS
 ONLY_FINDINGS = False
@@ -79,11 +80,22 @@ def show_image(im, title='', ax=None):
         plt.figure()
     plt.axis('off')
     plt.imshow(im, cmap=plt.cm.inferno, vmin=0, vmax=1)
-    plt.title(title)
+    plt.title(title, fontsize=22)
 
 
-def save_image(im, file_name):
-    plt.imsave(file_name, im, cmap=plt.inferno(), vmin=0, vmax=1)
+def save_image(im, img_name):
+    plt.imsave(img_name, im, cmap=plt.inferno(), vmin=0, vmax=1)
+
+
+def get_original(file_path):
+    im = PIL.Image.open(file_path)
+    im = im.resize((299,299))
+    im = np.asarray(im)
+    if im.ndim > 2:
+        im = im[:,:,:3]
+    else:
+        im = np.stack((im,) * 3, axis=-1)
+    return im
 
 
 top_row = ["Image Index"] + labels + ["Prediction"]
@@ -92,13 +104,16 @@ predictions_df = pd.DataFrame(columns=top_row)
 for i in range(len(df) - 1):
     im, Y_true = img_gen[i]
     im = im[0]
-    file_name = img_gen.filenames[i].split('/')[3]
+    file_name = img_gen.filenames[i]
+    im_orig = get_original(file_name)
+    print(file_name)
+    img_name = file_name.split('/')[3]
     predictions = model(np.array([im]))
 
     # update dataframe
     new_row = predictions.numpy().tolist()[0]
     new_row.append(decode_labels(predictions[0], labels))
-    new_row.insert(0, file_name)
+    new_row.insert(0, img_name)
     predictions_df.loc[len(predictions_df)] = new_row
 
     prediction_class = np.argmax(predictions[0])
@@ -127,28 +142,33 @@ for i in range(len(df) - 1):
 
     if to_images:
         # save images
-        save_image(vanilla_mask_grayscale, f"./vanilla_IG/{file_name}")
-        save_image(smoothgrad_mask_grayscale, f"./smoothgrad_IG/{file_name}")
+        save_image(vanilla_mask_grayscale, f"./vanilla_IG/{img_name}")
+        save_image(smoothgrad_mask_grayscale, f"./smoothgrad_IG/{img_name}")
 
     if to_figure:
         # Set up matplot lib figures.
         ROWS = 1
-        COLS = 2
+        COLS = 3
         UPSCALE_FACTOR = 10
 
-        title = f"{file_name} - True: {true_findings}; Predicted: {predicted_findings} ({np.amax(predictions[0]):.2f})"
+        title = f"{img_name} - True: {true_findings}; Predicted: {predicted_findings} ({np.amax(predictions[0]):.2f})"
 
-        maps = plt.figure(figsize=(ROWS * 9, COLS * 3))
+        maps = plt.figure(figsize=(COLS * UPSCALE_FACTOR, (ROWS + 0.5) * UPSCALE_FACTOR))
         plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05)
 
         # Render the saliency masks.
-        show_image(vanilla_mask_grayscale, title='Vanilla Integrated Gradients', ax=plt.subplot(ROWS, COLS, 1))
-        show_image(smoothgrad_mask_grayscale, title='Smoothgrad Integrated Gradients', ax=plt.subplot(ROWS, COLS, 2))
+        show_image(vanilla_mask_grayscale, title='Vanilla Integrated Gradients', ax=plt.subplot(ROWS, COLS, 2))
+        show_image(smoothgrad_mask_grayscale, title='Smoothgrad Integrated Gradients', ax=plt.subplot(ROWS, COLS, 3))
 
-        plt.suptitle(title)
-        plt.savefig(f"./maps/{CURRENT_MODEL}_{file_name}")
+        ax = plt.subplot(ROWS, COLS, 1)
+        plt.axis('off')
+        plt.title('Original Image', fontsize=22)
+        plt.imshow(im_orig)
+
+        plt.suptitle(title, fontsize=28)
+        plt.savefig(f"./maps/{CURRENT_MODEL}_{img_name}")
         plt.close(maps)
-        print(f"{CURRENT_MODEL}_{file_name}: {predicted_findings}")
+        print(f"{CURRENT_MODEL}_{img_name}: {predicted_findings}")
         print(f"{predictions[0]}")
 
 predictions_df.set_index("Image Index", inplace=True)
