@@ -27,8 +27,8 @@ def get_idg():
                               samplewise_std_normalization=True,
                               horizontal_flip=False,
                               vertical_flip=False,
-                              # height_shift_range=0.05,
-                              # width_shift_range=0.1,
+                              height_shift_range=0.05,
+                              width_shift_range=0.1,
                               rotation_range=5,
                               # shear_range=0.1,
                               fill_mode='nearest',
@@ -50,7 +50,7 @@ def get_generator_from_df(idg, df, batch_size, labels, image_size=299, shuffle=T
                                    )
 
 
-def get_model(current_model, num_labels, image_size, weights='imagenet'):
+def get_model(current_model, num_labels, image_size, weights='imagenet', drop_rate=0.2):
     models = {
         'InceptionV3': InceptionV3(include_top=False, weights='imagenet', input_shape=(image_size, image_size, 3)),
         'InceptionResNetV2': InceptionResNetV2(include_top=False, weights=None, input_shape=(image_size,
@@ -64,7 +64,7 @@ def get_model(current_model, num_labels, image_size, weights='imagenet'):
     base_model = models[current_model]
     x = base_model.output
     x = tf.keras.layers.GlobalAveragePooling2D()(x)
-    x = PermaDropout(0.2)(x)
+    x = PermaDropout(drop_rate)(x)
     # output = tf.keras.layers.Dense(num_labels, activation="sigmoid")(x)
     output = tf.keras.layers.Dense(num_labels, activation="softmax")(x)
     model = tf.keras.Model(base_model.input, output)
@@ -78,7 +78,7 @@ def get_callbacks(model_name):
     tensor_board = tf.keras.callbacks.TensorBoard(log_dir='./logs', histogram_freq=0)
     callbacks.append(tensor_board)
     checkpoint = tf.keras.callbacks.ModelCheckpoint(
-        filepath=f'model.{model_name}.h5',
+        filepath=f'model.{model_name}_no_NF.h5',
         verbose=1,
         save_best_only=True)
     # early = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
