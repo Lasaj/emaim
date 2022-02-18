@@ -11,6 +11,7 @@ import time
 import seaborn as sns
 from preprocessing import get_labels, prepare_df, get_image_filenames
 from generator import get_idg, get_generator_from_df, get_model
+from sklearn.metrics import confusion_matrix, accuracy_score
 
 # Set locations of files
 IMG_DIR = "./ChestX-ray14/images/"
@@ -20,12 +21,14 @@ WEIGHTS = "./complete/665412_softmax_no_NF/model.InceptionV3.h5"
 # VAL_FILE_LIST = "./ChestX-ray14/val_list.txt"
 TEST_FILE_LIST = "./ChestX-ray14/test_list.txt"
 ONLY_FINDINGS = True
+SPLIT_FINDINGS = True
+DROP_RATE = 0.5
 
 AVAILABLE_MODELS = ["InceptionV3", "InceptionResNetV2"]
 CURRENT_MODEL = AVAILABLE_MODELS[0]  # Select from AVAILABLE_MODELS
 OUTPUT_SIZE = 299  # height is the same as width
-NUM_PREDS = 400  # number of predictions to use
-BATCH_SIZE = NUM_PREDS
+NUM_PREDS = 50  # number of predictions to use
+BATCH_SIZE = 200
 
 
 def predict_prob(X, model, num_samples):
@@ -77,8 +80,9 @@ print("DataFrame complete")
 test_df = df[(df["Image Index"].isin(test_imgs))]
 
 individual_dfs = {'All': test_df}
-for label in labels:
-    individual_dfs[label] = test_df[test_df[label] > 0]
+if SPLIT_FINDINGS:  # create adf for each finding
+    for label in labels:
+        individual_dfs[label] = test_df[test_df[label] > 0]
 
 
 accuracies = {}
@@ -94,7 +98,7 @@ for index, label in enumerate(individual_dfs.keys()):
     # X_test = [X_test[8:9]]
     # y_test = [y_test[8]]
 
-    model, optimizer = get_model(CURRENT_MODEL, len(labels), OUTPUT_SIZE, weights=WEIGHTS)
+    model, optimizer = get_model(CURRENT_MODEL, len(labels), OUTPUT_SIZE, weights=WEIGHTS, drop_rate=DROP_RATE)
 
     # print(X_train[0])
     # print(X_train[0].shape)
@@ -112,9 +116,6 @@ for index, label in enumerate(individual_dfs.keys()):
     else:
         classes = [index - 1] * NUM_PREDS
 
-    print("classes")
-    print(classes)
-
     """
     B. Ghoshal and A. Tucker
     """
@@ -126,10 +127,13 @@ for index, label in enumerate(individual_dfs.keys()):
     y_pred_bayesian = np.mean(MC_samples, axis=0)  # average out 50 predictions into 1  # 6
     bayesPredictions = np.argmax(y_pred_bayesian, axis=1)  # return highest likelihood
 
-    print("MC_samples")
-    print(MC_samples)
+    # print("MC_samples")
+    # print(MC_samples)
     print("bayesPredictions")
     print(bayesPredictions)
+
+    print("classes")
+    print(classes)
     # acc = np.mean(bayesPredictions == y_test)
 
     correct_preds = []
@@ -159,18 +163,18 @@ for index, label in enumerate(individual_dfs.keys()):
     H = predictive_entropy(MC_samples)
     print("H")
     print(H)
-    print("H min", H.min(), "H max", H.max())
-    H_norm = (H - H.min()) / (H.max() - H.min())
-    print("H norm")
-    print(H_norm)
+    H_norm = H
+    # H_norm = (H - H.min()) / (H.max() - H.min())
+    # print("H norm")
+    # print(H_norm)
 
     # MC_samples = np.array(p_hat)
     mean_prob = np.mean(MC_samples, axis=0)
     print("Mean prob")
     print(mean_prob)
-    y_pred = np.argmax(mean_prob, axis=1)
-    print("y_pred")
-    print(y_pred)
+    # y_pred = np.argmax(mean_prob, axis=1)
+    # print("y_pred")
+    # print(y_pred)
 
     H_norm_correct = []
     for i in correct_preds:
@@ -181,12 +185,17 @@ for index, label in enumerate(individual_dfs.keys()):
         if i not in correct_preds:
             H_norm_incorrect.append(H_norm[i])
 
+    print("Correct", H_norm_correct)
+    print("Incorrect", H_norm_incorrect)
+
     sns.set()
     sns.kdeplot(H_norm_correct, shade=True, color='forestgreen')
     sns.kdeplot(H_norm_incorrect, shade=True, color='tomato')
 
-    plt.title(f"{label}, Accuracy:{accuracy}")
-    plt.savefig(f"{time.strftime('%Y%m%d_%H%M')}_{label}.png")
+    plt.xlabel('$ Uncertainty_{PE} $')
+    plt.ylabel('Relative frequency')
+    plt.title(f"{label}, Accuracy:{accuracy}, Dropout: {DROP_RATE}")
+    plt.savefig(f"{time.strftime('%Y%m%d_%H%M')}_{label}_{DROP_RATE}.png")
     plt.close()
 
 print(accuracies)

@@ -69,12 +69,15 @@ def get_scores(labels, y_pred, test_Y, now, model):
 def get_class_weights(labels, df):
     n_class = len(labels)
     n_sample = len(df)
-    freqs = {}
+
+    freqs = {}  # get frequencies for each one-hot encoding
     for l in labels:
         freqs[l] = df[l].sum()
-    weights = {}
+
+    weights = {}  # calculate class weights based on frequencies
     for i in range(n_class):
         weights[i] = n_sample / (n_class * freqs[labels[i]])
+    print(weights)
     return weights
 
 
